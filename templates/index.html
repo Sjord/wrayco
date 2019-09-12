@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>Download</title>
+  <link rel="stylesheet" href="{{ static_url("style.css") }}">
+</head>
+<body>
+  <form method="post">
+    <input type="url" name="url">
+    <input type="submit" value="Download">
+    {% module xsrf_form_html() %}
+  </form>
+  <a href="/">refresh</a>
+  <h1>Tasks</h1>
+  {% for task in tasks %}
+    <div id="{{ task.id }}">
+      {{ task.description }} - {{ task.progress }}%
+    </div>
+  {% end %}
+  <script>
+    var ws = new WebSocket("ws://localhost:8099/ws");
+    ws.onmessage = function (evt) {
+      const task = JSON.parse(evt.data);
+      document.getElementById(task.id).textContent = `${task.description} - ${task.progress}%`;
+    };
+  </script>
+</body>
+</html>
