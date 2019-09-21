@@ -23,33 +23,41 @@ class DownloadTask:
         self.task = asyncio.get_event_loop().create_task(self.run())
 
     async def run(self):
-        proc = await asyncio.create_subprocess_exec(
-            "youtube-dl",
-            "--newline",
-            self.url,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "youtube-dl",
+                "--newline",
+                self.url,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE)
 
-        while True:
-            line = await proc.stdout.readline()
-            if line == b'':
-                break
-            line = line.decode("ASCII")
+            while True:
+                line = await proc.stdout.readline()
+                if line == b'':
+                    break
+                line = line.decode("ASCII")
+
+                m = re.match("^\[download\] Destination: (.*)", line)
+                if m:
+                    self.description = m.group(1)
+                    self.notify()
+
+                m = re.match("^\[download\]\s+(.*)% of ", line)
+                if m:
+                    self.progress = float(m.group(1))
+                    self.notify()
             
-            m = re.match("^\[download\] Destination: (.*)", line)
-            if m:
-                self.description = m.group(1)
-                self.notify()
-            
-            m = re.match("^\[download\]\s+(.*)% of ", line)
-            if m:
-                self.progress = float(m.group(1))
-                self.notify()
-        
-        await proc.wait()
-        self.progress = 100
-        success = proc.returncode == 0
-        self.notify()
+            await proc.wait()
+            if proc.returncode == 0:
+                self.progress = 100
+            else:
+                error = await proc.stderr.read()
+                error = error.decode("UTF-8")
+                raise RuntimeError(error)
+        except Exception as e:
+            self.description = str(e)
+        finally:
+            self.notify()
 
     def notify(self):
         for l in self.listeners:
