@@ -20,7 +20,7 @@ class DownloadTask:
         self.listeners = []
 
     def start(self):
-        self.task = asyncio.create_task(self.run())
+        self.task = asyncio.get_event_loop().create_task(self.run())
 
     async def run(self):
         proc = await asyncio.create_subprocess_exec(
