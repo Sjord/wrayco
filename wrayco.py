@@ -18,12 +18,15 @@ class DownloadTask:
         self.description = url
         self.id = str(uuid.uuid4())
         self.listeners = []
+        self.status = "idle"
 
     def start(self):
         self.task = asyncio.get_event_loop().create_task(self.run())
 
     async def run(self):
         try:
+            self.status = "started"
+
             proc = await asyncio.create_subprocess_exec(
                 "youtube-dl",
                 "--newline",
@@ -46,15 +49,23 @@ class DownloadTask:
                 if m:
                     self.progress = float(m.group(1))
                     self.notify()
+
+                m = re.match('^\[ffmpeg\] Merging formats into "(.*)"', line)
+                if m:
+                    self.description = m.group(1)
+                    self.notify()
             
             await proc.wait()
             if proc.returncode == 0:
                 self.progress = 100
+                self.status = "finished"
             else:
                 error = await proc.stderr.read()
                 error = error.decode("UTF-8")
+                self.status = "error"
                 raise RuntimeError(error)
         except Exception as e:
+            self.status = "error"
             self.description = str(e)
         finally:
             self.notify()
@@ -72,7 +83,8 @@ class TaskWebSocket(tornado.websocket.WebSocketHandler):
         self.write_message({
             "id": task.id,
             "description": task.description,
-            "progress": task.progress
+            "progress": task.progress,
+            "status": task.status
         })
 
     def on_close(self):
