@@ -1,18 +1,17 @@
-import asyncio
 import enum
 import os.path
-import re
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
 import uuid
+import youtube_dl
 from tornado.options import define, options, parse_command_line
 
 define("port", default=8099, help="run on the given port", type=int)
 define("debug", default=True, help="run in debug mode")
 
 
-class DownloadStatus:
+class DownloadStatus(str, enum.Enum):
     started = "started"
     error = "error"
     idle = "idle"
@@ -29,49 +28,35 @@ class DownloadTask:
         self.status = DownloadStatus.idle
 
     def start(self):
-        self.task = asyncio.get_event_loop().create_task(self.run())
+        self.loop = tornado.ioloop.IOLoop.current()
+        self.loop.run_in_executor(None, self.run)
 
-    async def run(self):
+    def progress_hook(self, status_dict):
+        try:
+            self.status = DownloadStatus(status_dict["status"])
+        except ValueError:
+            pass
+
+        try:
+            self.description = status_dict["filename"]
+            self.progress = round(100. * status_dict["downloaded_bytes"] / status_dict["total_bytes"])
+        except KeyError:
+            pass
+
+        self.notify()
+
+    def run(self):
         try:
             self.status = DownloadStatus.started
 
-            proc = await asyncio.create_subprocess_exec(
-                "youtube-dl",
-                "--newline",
-                self.url,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE)
+            ydl_opts = {
+                "no_color": True,
+                "progress_hooks": [self.progress_hook]
+            }
+            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([self.url])
+            self.status = DownloadStatus.finished
 
-            while True:
-                line = await proc.stdout.readline()
-                if line == b'':
-                    break
-                line = line.decode("ASCII")
-
-                m = re.match("^\[download\] Destination: (.*)", line)
-                if m:
-                    self.description = m.group(1)
-                    self.notify()
-
-                m = re.match("^\[download\]\s+(.*)% of ", line)
-                if m:
-                    self.progress = float(m.group(1))
-                    self.notify()
-
-                m = re.match('^\[ffmpeg\] Merging formats into "(.*)"', line)
-                if m:
-                    self.description = m.group(1)
-                    self.notify()
-            
-            await proc.wait()
-            if proc.returncode == 0:
-                self.progress = 100
-                self.status = DownloadStatus.finished
-            else:
-                error = await proc.stderr.read()
-                error = error.decode("UTF-8")
-                self.status = DownloadStatus.error
-                raise RuntimeError(error)
         except Exception as e:
             self.status = DownloadStatus.error
             self.description = str(e)
@@ -80,7 +65,7 @@ class DownloadTask:
 
     def notify(self):
         for l in self.listeners:
-            l.on_task_update(self)
+            self.loop.add_callback(l.on_task_update, self)
 
 
 class TaskWebSocket(tornado.websocket.WebSocketHandler):
@@ -113,7 +98,7 @@ class Downloader:
     def on_task_update(self, task):
         for l in self.listeners:
             l.on_task_update(task)
-        
+
 
 downloader = Downloader()
 
@@ -143,6 +128,7 @@ def main():
     )
     app.listen(options.port)
     tornado.ioloop.IOLoop.current().start()
+
 
 if __name__ == "__main__":
     main()
