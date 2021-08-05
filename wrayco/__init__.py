@@ -1,4 +1,5 @@
 import asyncio
+import enum
 import os.path
 import re
 import tornado.ioloop
@@ -11,6 +12,13 @@ define("port", default=8099, help="run on the given port", type=int)
 define("debug", default=True, help="run in debug mode")
 
 
+class DownloadStatus:
+    started = "started"
+    error = "error"
+    idle = "idle"
+    finished = "finished"
+
+
 class DownloadTask:
     def __init__(self, url):
         self.url = url
@@ -18,14 +26,14 @@ class DownloadTask:
         self.description = url
         self.id = str(uuid.uuid4())
         self.listeners = []
-        self.status = "idle"
+        self.status = DownloadStatus.idle
 
     def start(self):
         self.task = asyncio.get_event_loop().create_task(self.run())
 
     async def run(self):
         try:
-            self.status = "started"
+            self.status = DownloadStatus.started
 
             proc = await asyncio.create_subprocess_exec(
                 "youtube-dl",
@@ -58,14 +66,14 @@ class DownloadTask:
             await proc.wait()
             if proc.returncode == 0:
                 self.progress = 100
-                self.status = "finished"
+                self.status = DownloadStatus.finished
             else:
                 error = await proc.stderr.read()
                 error = error.decode("UTF-8")
-                self.status = "error"
+                self.status = DownloadStatus.error
                 raise RuntimeError(error)
         except Exception as e:
-            self.status = "error"
+            self.status = DownloadStatus.error
             self.description = str(e)
         finally:
             self.notify()
