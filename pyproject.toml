@@ -1,0 +1,13 @@
+[build-system]
+requires = [
+    "whey"
+]
+build-backend = "whey"
+
+[project]
+name = "wrayco"
+version = "0.0.1"
+dependencies = ["youtube-dl", "tornado"]
+
+[project.scripts]
+wrayco = "wrayco:main"
