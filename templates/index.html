@@ -14,11 +14,13 @@
   </form>
   <a href="/">refresh</a>
   <h1>Tasks</h1>
-  {% for task in tasks %}
-    <div id="{{ task.id }}">
-      {{ task.description }} - {{ task.progress }}%
-    </div>
-  {% end %}
+  <ul>
+    {% for task in tasks %}
+      <li id="{{ task.id }}" class="{{ task.status }}">
+        {{ task.description }} - {{ task.progress }}%
+      </li>
+    {% end %}
+    </ul>
   <script src="{{ static_url("script.js") }}"></script>
 </body>
 </html>
