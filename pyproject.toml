@@ -11,3 +11,9 @@ dependencies = ["youtube-dl", "tornado"]
 
 [project.scripts]
 wrayco = "wrayco:main"
+
+[tool.whey]
+additional-files = [
+    "include wrayco/templates/*",
+    "include wrayco/static/*",
+]
