@@ -19,12 +19,6 @@
       {{ task.description }} - {{ task.progress }}%
     </div>
   {% end %}
-  <script>
-    var ws = new WebSocket("ws://localhost:8099/ws");
-    ws.onmessage = function (evt) {
-      const task = JSON.parse(evt.data);
-      document.getElementById(task.id).textContent = `${task.description} - ${task.progress}%`;
-    };
-  </script>
+  <script src="{{ static_url("script.js") }}"></script>
 </body>
 </html>
