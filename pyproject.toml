@@ -6,8 +6,8 @@ build-backend = "whey"
 
 [project]
 name = "wrayco"
-version = "0.0.1"
-dependencies = ["youtube-dl", "tornado"]
+version = "0.0.2"
+dependencies = ["yt-dlp", "tornado"]
 
 [project.scripts]
 wrayco = "wrayco:main"

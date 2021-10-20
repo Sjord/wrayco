@@ -4,7 +4,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 import uuid
-import youtube_dl
+import yt_dlp
 from tornado.options import define, options, parse_command_line
 
 define("port", default=8099, help="run on the given port", type=int)
@@ -53,7 +53,7 @@ class DownloadTask:
                 "no_color": True,
                 "progress_hooks": [self.progress_hook]
             }
-            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([self.url])
             self.status = DownloadStatus.finished
 
